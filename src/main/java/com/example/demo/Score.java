@@ -1,5 +1,4 @@
 package com.example.demo;
-
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -10,7 +9,6 @@ public class Score {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Playerテーブルと「多対1」で紐付ける
     @ManyToOne
     @JoinColumn(name = "player_id", nullable = false)
     private Player player;
@@ -18,11 +16,9 @@ public class Score {
     @Column(nullable = false)
     private int score;
 
-    // いつプレイしたかの日時も自動で記録しておく
     @Column(name = "played_at")
     private LocalDateTime playedAt = LocalDateTime.now();
 
-    // Getter & Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Player getPlayer() { return player; }

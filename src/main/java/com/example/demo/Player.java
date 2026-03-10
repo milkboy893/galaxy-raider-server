@@ -1,4 +1,4 @@
-package com.example.tetris.entity;
+package com.example.demo;
 import jakarta.persistence.*;
 
 @Entity
@@ -8,15 +8,12 @@ public class Player {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // unique = true で同じ名前の登録をデータベースレベルでブロックする
     @Column(unique = true, nullable = false)
     private String name;
 
-    // 個人の累計プレイ回数を保存するカラム
     @Column(name = "play_count")
     private int playCount = 0;
 
-    // Getter & Setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getName() { return name; }
