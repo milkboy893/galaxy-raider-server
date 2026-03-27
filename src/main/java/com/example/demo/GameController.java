@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable; // これを追加
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,11 +21,13 @@ public class GameController {
     @Autowired
     private ScoreRepository scoreRepository;
 
+    // ① スコアを保存する
     @PostMapping("/score")
     public Score saveScore(@RequestBody Score score) {
         return scoreRepository.save(score);
     }
 
+    // ② ランキングを取得する
     @GetMapping("/ranking")
     public List<Map<String, Object>> getRanking() {
         return scoreRepository.findTop10ByOrderByScoreDesc().stream()
@@ -37,20 +39,18 @@ public class GameController {
             .collect(Collectors.toList());
     }
 
-    // ▼▼▼ ここから下を追加 ▼▼▼
-
-    // 1. Unityの RegisterPlayer が叩く窓口
+    // ③ 【新規追加】Unityからのプレイヤー登録を受け止める（404回避）
     @PostMapping("/players/register")
     public Map<String, Object> registerPlayer(@RequestBody Map<String, String> body) {
         String name = body.get("name");
-        // とりあえず「登録成功」のサイン(200 OK)を返してUnityを先に進ませる
+        // エラーを出さず「成功」としてUnityを先に進ませる
         return Map.of("status", "success", "name", name);
     }
 
-    // 2. Unityの FetchPlayerStats が叩く窓口
+    // ④ 【新規追加】Unityからの戦績リクエストを受け止める（404回避）
     @GetMapping("/players/{name}/stats")
     public Map<String, Object> getPlayerStats(@PathVariable String name) {
-        // とりあえずダミーの戦績データを返してエラーを防ぐ
+        // ゲームが止まらないように、仮の戦績データを返す
         return Map.of(
             "name", name,
             "playCount", 1,
