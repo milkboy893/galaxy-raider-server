@@ -21,41 +21,51 @@ public class GameController {
     @Autowired
     private ScoreRepository scoreRepository;
 
-    // ① スコアを保存する
     @PostMapping("/score")
     public Score saveScore(@RequestBody Score score) {
         return scoreRepository.save(score);
     }
 
-    // ② ランキングを取得する
+    // ★修正1: playDateによるエラー（クラッシュ）を防ぐため、確実に存在する名前とスコアだけを返す
     @GetMapping("/ranking")
     public List<Map<String, Object>> getRanking() {
         return scoreRepository.findTop10ByOrderByScoreDesc().stream()
             .map(score -> Map.<String, Object>of(
-                "playerName", score.getPlayerName(),
-                "score", score.getScore(),
-                "playDate", score.getPlayDate().toString()
+                "playerName", score.getPlayerName() != null ? score.getPlayerName() : "Guest",
+                "score", score.getScore()
             ))
             .collect(Collectors.toList());
     }
 
-    // ③ 【新規追加】Unityからのプレイヤー登録を受け止める（404回避）
     @PostMapping("/players/register")
     public Map<String, Object> registerPlayer(@RequestBody Map<String, String> body) {
         String name = body.get("name");
-        // エラーを出さず「成功」としてUnityを先に進ませる
         return Map.of("status", "success", "name", name);
     }
 
-    // ④ 【新規追加】Unityからの戦績リクエストを受け止める（404回避）
+    // ★修正2: 仮データではなく、DBから本当のプレイ回数とハイスコアを計算して返す
     @GetMapping("/players/{name}/stats")
     public Map<String, Object> getPlayerStats(@PathVariable String name) {
-        // ゲームが止まらないように、仮の戦績データを返す
+        List<Score> allScores = scoreRepository.findAll();
+
+        int playCount = 0;
+        int highScore = 0;
+
+        for (Score s : allScores) {
+            // nullチェックをしつつ、該当プレイヤーのスコアを探す
+            if (s.getPlayerName() != null && s.getPlayerName().equals(name)) {
+                playCount++;
+                if (s.getScore() > highScore) {
+                    highScore = s.getScore();
+                }
+            }
+        }
+
         return Map.of(
             "name", name,
-            "playCount", 1,
-            "highScore", 0,
-            "history", List.of()
+            "playCount", playCount,
+            "highScore", highScore,
+            "history", List.of() // 履歴リストは空のままでUIエラーを防ぐ
         );
     }
 }
