@@ -7,6 +7,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -17,21 +19,27 @@ public class Score {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String playerName;
+    // 誰のスコアか分からなくなる孤立データを防ぐため、Playerエンティティと直接紐づける
+    @ManyToOne
+    @JoinColumn(name = "player_id", nullable = false)
+    private Player player;
 
     @Column(nullable = false)
     private int score;
 
+    // 登録日時は後から更新させない
     @Column(nullable = false, updatable = false)
     private LocalDateTime playDate = LocalDateTime.now();
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public String getPlayerName() { return playerName; }
-    public void setPlayerName(String playerName) { this.playerName = playerName; }
+
+    public Player getPlayer() { return player; }
+    public void setPlayer(Player player) { this.player = player; }
+
     public int getScore() { return score; }
     public void setScore(int score) { this.score = score; }
+
     public LocalDateTime getPlayDate() { return playDate; }
     public void setPlayDate(LocalDateTime playDate) { this.playDate = playDate; }
 }
