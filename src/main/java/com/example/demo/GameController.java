@@ -1,9 +1,10 @@
 package com.example.demo;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,77 +32,74 @@ public class GameController {
     @PostMapping("/players/register")
     public ResponseEntity<?> registerPlayer(@RequestBody Map<String, String> body) {
         String name = body.get("name");
-
-        if (playerRepository.existsByName(name)) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("status", "error", "message", "Already registered"));
+        if (name == null || playerRepository.existsByName(name)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Error");
         }
-
         Player newPlayer = new Player();
         newPlayer.setName(name);
         playerRepository.save(newPlayer);
-
-        return ResponseEntity.ok(Map.of("status", "success", "name", name));
+        return ResponseEntity.ok("Success");
     }
 
     @PostMapping("/score")
-    public ResponseEntity<?> saveScore(@RequestBody Map<String, Object> body) {
-        String playerName = (String) body.get("playerName");
-        Integer scoreValue = (Integer) body.get("score");
+    public ResponseEntity<?> saveScore(@RequestBody ScoreRequest request) {
+        // 1. 変数に取り出す（この時点で int なので絶対に null ではありません）
+        String pName = request.getPlayerName();
+        int scoreValue = request.getScore();
 
-        Player player = playerRepository.findByName(playerName).orElse(null);
-        if (player == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("status", "error", "message", "Player not found"));
+        if (pName == null) {
+            return ResponseEntity.badRequest().body("Name is null");
         }
 
-        Score score = new Score();
-        score.setPlayer(player);
-        score.setScore(scoreValue);
-        scoreRepository.save(score);
+        // 2. Optional の map を使わず、isPresent で確実に分岐させる
+        // これにより IDE は「player が確実に存在する状態」と「値が安全な状態」を確信します
+        Optional<Player> playerOpt = playerRepository.findByName(pName);
 
-        return ResponseEntity.ok(Map.of("status", "success"));
+        if (playerOpt.isPresent()) {
+            Player player = playerOpt.get();
+            Score score = new Score();
+            score.setPlayer(player);
+            score.setScore(scoreValue); // ★ここでの Unboxing 警告は物理的に出なくなります
+            scoreRepository.save(score);
+            return ResponseEntity.ok("Success");
+        }
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Player not found");
     }
 
     @GetMapping("/ranking")
     public List<Map<String, Object>> getRanking() {
         return scoreRepository.findTop10ByOrderByScoreDesc().stream()
-            .map(score -> Map.<String, Object>of(
-                "playerName", score.getPlayer() != null ? score.getPlayer().getName() : "Guest",
-                "score", score.getScore()
-            ))
+            .map(s -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("playerName", s.getPlayer() != null ? s.getPlayer().getName() : "Guest");
+                map.put("score", s.getScore());
+                return map;
+            })
             .collect(Collectors.toList());
     }
 
     @GetMapping("/players/{name}/stats")
     public Map<String, Object> getPlayerStats(@PathVariable String name) {
-        List<Score> allScores = scoreRepository.findAll();
+        List<Score> all = scoreRepository.findAll();
+        List<Integer> userScores = all.stream()
+            .filter(s -> s.getPlayer() != null && name.equals(s.getPlayer().getName()))
+            .map(Score::getScore)
+            .sorted(Comparator.reverseOrder())
+            .collect(Collectors.toList());
 
-        int playCount = 0;
-        int highScore = 0;
-        List<Integer> history = new ArrayList<>();
-
-        for (Score s : allScores) {
-            if (s.getPlayer() != null && s.getPlayer().getName().equals(name)) {
-                playCount++;
-                if (s.getScore() > highScore) {
-                    highScore = s.getScore();
-                }
-                history.add(s.getScore());
-            }
+        // ここも波線が出ないように安全に処理
+        int pCount = userScores.size();
+        int hScore = 0;
+        if (!userScores.isEmpty() && userScores.get(0) != null) {
+            hScore = userScores.get(0);
         }
 
-        history.sort(Collections.reverseOrder());
-
-        if (history.size() > 5) {
-            history = history.subList(0, 5);
-        }
-
-        return Map.of(
-            "name", name,
-            "playCount", playCount,
-            "highScore", highScore,
-            "history", history
-        );
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("name", name);
+        stats.put("playCount", pCount);
+        stats.put("highScore", hScore);
+        stats.put("history", userScores.stream().limit(5).collect(Collectors.toList()));
+        return stats;
     }
 }
