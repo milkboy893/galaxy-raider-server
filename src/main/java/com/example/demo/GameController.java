@@ -32,7 +32,6 @@ public class GameController {
     public ResponseEntity<?> registerPlayer(@RequestBody Map<String, String> body) {
         String name = body.get("name");
 
-        // 重複チェック: 存在する場合は409を返し、Unity側で「別の名前を入力してください」とUI表示させる
         if (playerRepository.existsByName(name)) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(Map.of("status", "error", "message", "Already registered"));
@@ -50,7 +49,6 @@ public class GameController {
         String playerName = (String) body.get("playerName");
         Integer scoreValue = (Integer) body.get("score");
 
-        // UnityからはStringで名前が送られてくるため、Playerエンティティを探して紐づける
         Player player = playerRepository.findByName(playerName).orElse(null);
         if (player == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -77,7 +75,6 @@ public class GameController {
 
     @GetMapping("/players/{name}/stats")
     public Map<String, Object> getPlayerStats(@PathVariable String name) {
-        // TODO: データ量が増えるとfindAllは重くなるため、将来的にはSQL側で集計するようにService層へ切り出す
         List<Score> allScores = scoreRepository.findAll();
 
         int playCount = 0;
@@ -94,10 +91,8 @@ public class GameController {
             }
         }
 
-        // 履歴をスコアが高い順（降順）にソート
         history.sort(Collections.reverseOrder());
 
-        // Unity側のUI表示（通信量）に合わせて、トップ5件のみに絞って返す
         if (history.size() > 5) {
             history = history.subList(0, 5);
         }
